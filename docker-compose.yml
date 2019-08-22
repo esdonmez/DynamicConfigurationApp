@@ -1,0 +1,8 @@
+version: '3.4'
+
+services:
+  web_dynamicconfiguration:
+    image: ${DOCKER_REGISTRY}webdynamicconfiguration
+    build:
+      context: .
+      dockerfile: Web_DynamicConfiguration/Dockerfile
