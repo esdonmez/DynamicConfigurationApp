@@ -1,3 +1,4 @@
+using Lib_DynamicConfiguration;
 using Lib_DynamicConfiguration.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -18,6 +19,14 @@ namespace Web_DynamicConfiguration
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            services.Configure<CookiePolicyOptions>(options =>
+            {
+            });
+
+            services.AddSingleton<IConfigurationReader, ConfigurationReader>(s =>
+            {
+                return new ConfigurationReader("app1", "mongodb://localhost:27017/ConfigReader", 45000);
+            });
             IoC.CreateContainer();
             services.AddMvc();
         }

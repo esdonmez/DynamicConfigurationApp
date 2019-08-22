@@ -18,12 +18,16 @@ namespace Lib_DynamicConfiguration
         public static string _connectionString;
         private readonly int _refreshTimerIntervalInMs;
         public CancellationToken _cancellationToken { get; set; }
-        
+        private IMapper mapper;
+
         public ConfigurationReader(string applicationName, string connectionString, int refreshTimerIntervalInMs = 30000)
         {
             _applicationName = applicationName;
             _connectionString = connectionString;
             _refreshTimerIntervalInMs = refreshTimerIntervalInMs;
+            
+            var config = new MapperConfiguration(cfg => { cfg.CreateMap<ConfigDTO, Config>().ReverseMap(); });
+            mapper = config.CreateMapper();
 
             Task.Run(() => this.LoadData()).Wait();
             Task.Run(() => this.StartTimer(_cancellationToken));
@@ -33,6 +37,8 @@ namespace Lib_DynamicConfiguration
 
         public T GetValue<T>(string name)
         {
+            if (string.IsNullOrWhiteSpace(name))
+                return default(T);
             var cachedItem = cachedConfigList.FirstOrDefault(a => a.Name == name && a.IsActive);
             if (cachedItem == null)
                 return default(T);
@@ -40,8 +46,10 @@ namespace Lib_DynamicConfiguration
             return result;
         }
 
-        public async Task<bool> AddAsync(ConfigDTO model)
+        public async Task<bool> AddAsync(Config model)
         {
+            if (model == null)
+                return false;
             if (string.IsNullOrWhiteSpace(model.Name) || string.IsNullOrWhiteSpace(model.Value))
                 return false;
 
@@ -50,37 +58,48 @@ namespace Lib_DynamicConfiguration
                 return false;
 
             model.ApplicationName = _applicationName;
-            await IoC.Resolve<IConfigurationRepository>().InsertAsync(model);
+            await IoC.Resolve<IConfigurationRepository>().InsertAsync(mapper.Map<Config,ConfigDTO>(model));
             return true;
         }
 
-        public async Task<bool> UpdateAsync(ConfigDTO model)
+        public async Task<bool> UpdateAsync(Config model)
         {
-            return await IoC.Resolve<IConfigurationRepository>().UpdateAsync(model);
+            if (model == null)
+                return false;
+            if (string.IsNullOrWhiteSpace(model.Name) || string.IsNullOrWhiteSpace(model.Value))
+                return false;
+
+            return await IoC.Resolve<IConfigurationRepository>().UpdateAsync(mapper.Map<Config, ConfigDTO>(model));
         }
 
-        public async Task<List<ConfigDTO>> GetAllAsync()
+        public async Task<List<Config>> GetAllAsync()
         {
-            return (await IoC.Resolve<IConfigurationRepository>().GetAllByApplicationNameAsync(_applicationName)).ToList();
+            var list = (await IoC.Resolve<IConfigurationRepository>().GetAllByApplicationNameAsync(_applicationName)).ToList();
+            List<Config> configList = new List<Config>();
+            list.ForEach(i => configList.Add(mapper.Map<ConfigDTO, Config>(i)));
+            return configList;
         }
 
-        public async Task<List<ConfigDTO>> SearchByNameAsync(string name)
+        public async Task<List<Config>> SearchByNameAsync(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
-                return new List<ConfigDTO>();
-            return (await IoC.Resolve<IConfigurationRepository>().FilterByNameAsync(name, _applicationName)).ToList();
+                return new List<Config>();
+            var list = (await IoC.Resolve<IConfigurationRepository>().FilterByNameAsync(name, _applicationName)).ToList();
+            List<Config> configList = new List<Config>();
+            list.ForEach(i => configList.Add(mapper.Map<ConfigDTO, Config>(i)));
+            return configList;
         }
 
-        public async Task<ConfigDTO> GetByIdAsync(string id)
+        public async Task<Config> GetByIdAsync(string id)
         {
             if (string.IsNullOrWhiteSpace(id))
                 return null;
-            return await IoC.Resolve<IConfigurationRepository>().GetByIdAsync(id);
+            return mapper.Map<ConfigDTO, Config>(await IoC.Resolve<IConfigurationRepository>().GetByIdAsync(id));
         }
         
         private async Task LoadData()
         {
-            var list = IoC.Resolve<IConfigurationRepository>().GetAllByApplicationNameAsync(_applicationName);
+            var list = IoC.Resolve<IConfigurationRepository>().GetAllByApplicationNameAndIsActiveAsync(_applicationName, true);
 
             if (cachedConfigList == null)
                 IoC.Resolve<ICacheRepository>().Insert(Constants.RedisKey, list);
@@ -105,7 +124,7 @@ namespace Lib_DynamicConfiguration
         public async Task ReloadCacheList()
         {
             var newcachedConfigList = cachedConfigList != null ? new List<Config>(cachedConfigList) : new List<Config>();
-            var configurationList = await IoC.Resolve<IConfigurationRepository>().GetAllByApplicationNameAsync(_applicationName);
+            var configurationList = await IoC.Resolve<IConfigurationRepository>().GetAllByApplicationNameAndIsActiveAsync(_applicationName, true);
 
             if (!configurationList.Any())
                 return;
@@ -121,8 +140,6 @@ namespace Lib_DynamicConfiguration
                 }
                 else
                 {
-                    var config = new MapperConfiguration(cfg => { cfg.CreateMap<ConfigDTO, Config>(); });
-                    IMapper mapper = config.CreateMapper();
                     newcachedConfigList.Add(mapper.Map<ConfigDTO, Config>(configuration));
                 }
             }

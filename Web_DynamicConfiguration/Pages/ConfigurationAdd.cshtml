@@ -1,0 +1,45 @@
+﻿@page
+@model ConfigurationAddModel
+@{
+    ViewData["Title"] = "AddNewConfiguration";
+}
+<h2>@ViewData["Title"]</h2>
+<h3>@Model.Config</h3>
+
+<script src="~/lib/jquery/dist/jquery.js"></script>
+<script src="~/lib/jquery-validation/dist/jquery.validate.js"></script>
+<script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.js"></script>
+
+<div class="container">
+    <h3>Add New Configuration</h3>
+    <br />
+    <form method="post">
+        <div class="row">
+            <div class="col-md-4">
+                <label asp-for="Config.Name"></label>
+                <input asp-for="Config.Name" class="form-control" />
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-4">
+                <label asp-for="Config.Type"></label>
+                <input asp-for="Config.Type" class="form-control" />
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-4">
+                <label asp-for="Config.Value"></label>
+                <input asp-for="Config.Value" class="form-control" />
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-4">
+                <label asp-for="Config.IsActive"></label>
+                <input asp-for="Config.IsActive" cl class="form-control" />
+            </div>
+        </div>
+        <br />
+        <input type="submit" value="Save" class="btn btn-primary" />
+        <a class="btn btn-default" href="/Index">Cancel</a>
+    </form>
+</div>
